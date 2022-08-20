@@ -1,0 +1,216 @@
+------------------ Install IBC Go Relay V2 
+
+------ Guide:
+https://github.com/kj89/go_v2_relayer
+
+------ Command:
+git clone https://github.com/cosmos/relayer.git
+cd relayer/
+git checkout v2.0.0-rc4
+make install 
+
+------ Verify version
+root@vmi844997:~/relayer# rly version
+version: 2.0.0-rc4
+commit: unknown
+cosmos-sdk: v0.45.6
+go: go1.18.3 linux/amd64
+
+
+------------ Config
+rly config init --memo "don__chicken#3030"  
+cd $HOME/.relayer/config
+check config.yaml:
+
+global:
+    api-listen-addr: :5183
+    timeout: 100s
+    memo: "don__chicken#3030"
+    light-cache-size: 20
+
+chains:
+    {}
+paths:
+
+--------------- Add chain using json file
+
+
+nano relay_stride.json
+
+{
+  "type": "cosmos",
+  "value": {
+    "key": "w2_chicken",
+    "chain-id": "STRIDE-TESTNET-4",
+    "rpc-addr": "http://localhost:16657",
+    "account-prefix": "stride",
+    "keyring-backend": "test",
+    "gas-adjustment": 1.2,
+    "gas-prices": "0.0025ustrd",
+    "debug": true,
+    "timeout": "20s",
+    "output-format": "json",
+    "sign-mode": "direct"
+  }
+}
+
+nano relay_gaia.json
+
+{
+  "type": "cosmos",
+  "value": {
+    "key": "w2_Gaia",
+    "chain-id": "GAIA",
+    "rpc-addr": "http://localhost:23657",
+    "account-prefix": "cosmos",
+    "keyring-backend": "test",
+    "gas-adjustment": 1.2,
+    "gas-prices": "0.0025uatom",
+    "debug": true,
+    "timeout": "20s",
+    "output-format": "json",
+    "sign-mode": "direct"
+  }
+}
+
+------------- Command to add, keep file json in the same folder
+rly chains add --file relay_stride.json STRIDE-TESTNET-4
+rly chains add --file relay_gaia.json GAIA
+
+------------ Add key
+
+rly keys restore STRIDE-TESTNET-4 w2_chicken "24 mnemomic phrase"
+rly keys restore GAIA w2_Gaia "24 mnemomic phrase"
+
+
+root@vmi837835:~/.relayer/config# rly keys restore STRIDE-TESTNET-4 w2_chicken "24 mnemomic phrase"
+stride_wallet_address
+root@vmi837835:~/.relayer/config#
+root@vmi837835:~/.relayer/config#
+root@vmi837835:~/.relayer/config#
+root@vmi837835:~/.relayer/config# rly keys restore GAIA w2_Gaia "skin chair light mandate ecology excess demise drive rigid planet autumn clip consider garment machine frame search fuel tenant sight nice tip siege oppose"
+gaia_wallet_address
+root@vmi837835:~/.relayer/config#
+
+--------- List key
+
+root@vmi837835:~/.relayer/config# rly keys list STRIDE-TESTNET-4
+key(w2_chicken) -> stride_wallet_address
+root@vmi837835:~/.relayer/config# rly keys list GAIA
+key(w2_Gaia) -> gaia_wallet_address
+root@vmi837835:~/.relayer/config#
+
+
+--------- Query balance
+
+rly q balance GAIA
+rly q balance STRIDE-TESTNET-4
+
+root@vmi837835:~/.relayer/config# rly q balance GAIA
+address {gaia_wallet_address} balance {10000000uatom}
+root@vmi837835:~/.relayer/config# rly q balance STRIDE-TESTNET-4
+address {stride_wallet_address} balance {5941704ustrd}
+root@vmi837835:~/.relayer/config#
+
+
+root@vmi837835:~/.relayer/config# rly chains list
+ 1: GAIA                 -> type(cosmos) key(✔) bal(✔) path(✘)
+ 2: STRIDE-TESTNET-4     -> type(cosmos) key(✔) bal(✔) path(✘)
+root@vmi837835:~/.relayer/config#
+
+
+
+------------ Make systemd service
+
+sudo tee /etc/systemd/system/rlyd.service > /dev/null <<EOF
+[Unit]
+Description=V2 Go relayer
+After=network-online.target
+
+[Service]
+User=$USER
+ExecStart=$(which rly) start Path_StrideGaia --memo "don__chicken#3030"
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+------ systemd management
+
+sudo systemctl daemon-reload
+sudo systemctl enable rlyd
+sudo systemctl restart rlyd
+sudo journalctl -fu rlyd -o cat
+sudo systemctl stop rlyd
+sudo systemctl disable rlyd
+
+--------------- Path
+
+rly paths new STRIDE-TESTNET-4 GAIA Path_StrideGaia
+
+
+------ Create manual
+
+rly transact clients Path_StrideGaia
+rly transact connection Path_StrideGaia
+rly transact channel Path_StrideGaia
+
+
+
+--------------------- Example Command 
+
+root@vmi837835:~/.relayer/config# rly transact clients Path_StrideGaia
+2022-08-20T15:57:23.421626Z     info    Clients created {"src_client_id": "07-tendermint-4", "src_chain_id": "STRIDE-TESTNET-4", "dst_client_id": "07-tendermint-1", "dst_chain_id": "GAIA"}
+
+root@vmi837835:~/.relayer/config# rly transact connection Path_StrideGaia
+2022-08-20T15:57:40.938324Z     info    Clients created {"src_client_id": "07-tendermint-4", "src_chain_id": "STRIDE-TESTNET-4", "dst_client_id": "07-tendermint-1", "dst_chain_id": "GAIA"}
+2022-08-20T15:57:40.938454Z     info    Starting event processor for connection handshake       {"src_chain_id": "STRIDE-TESTNET-4", "src_client_id": "07-tendermint-4", "dst_chain_id": "GAIA", "dst_client_id": "07-tendermint-1"}
+2022-08-20T15:57:40.948627Z     info    Chain is not yet in sync        {"chain_name": "STRIDE-TESTNET-4", "chain_id": "STRIDE-TESTNET-4", "latest_queried_block": 24531, "latest_height": 24551}
+2022-08-20T15:57:40.977381Z     info    Chain is not yet in sync        {"chain_name": "GAIA", "chain_id": "GAIA", "latest_queried_block": 27500, "latest_height": 27520}
+2022-08-20T15:57:42.957250Z     info    Chain is in sync        {"chain_name": "STRIDE-TESTNET-4", "chain_id": "STRIDE-TESTNET-4"}
+2022-08-20T15:57:43.275019Z     info    Chain is in sync        {"chain_name": "GAIA", "chain_id": "GAIA"}
+2022-08-20T15:57:52.653693Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "STRIDE-TESTNET-4", "gas_used": 280787, "fees": "811ustrd", "fee_payer": "stride_wallet_address", "height": 24553, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.connection.v1.MsgConnectionOpenInit"], "tx_hash": "id"}
+2022-08-20T15:58:00.450554Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "GAIA", "gas_used": 433480, "fees": "1268uatom", "fee_payer": "gaia_wallet_address", "height": 27524, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.connection.v1.MsgConnectionOpenTry"], "tx_hash": "id"}
+2022-08-20T15:58:05.340637Z     warn    Error querying block data       {"chain_name": "GAIA", "chain_id": "GAIA", "error": "RPC error -32603 - Internal error: could not find results for height #27525"}
+2022-08-20T15:58:09.262147Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "STRIDE-TESTNET-4", "gas_used": 408933, "fees": "1195ustrd", "fee_payer": "stride_wallet_address", "height": 24556, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.connection.v1.MsgConnectionOpenAck"], "tx_hash": "id"}
+2022-08-20T15:58:20.647530Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "GAIA", "gas_used": 300626, "fees": "870uatom", "fee_payer": "gaia_wallet_address", "height": 27528, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.connection.v1.MsgConnectionOpenConfirm"], "tx_hash": "id"}
+2022-08-20T15:58:21.355127Z     info    Connection handshake termination candidate      {"chain_id": "GAIA", "client_id": "07-tendermint-1", "termination_client_id": "07-tendermint-1", "observed_client_id": "07-tendermint-1", "termination_counterparty_client_id": "07-tendermint-4", "observed_counterparty_client_id": "07-tendermint-4"}
+2022-08-20T15:58:21.355179Z     info    Found termination condition for connection handshake    {"chain_id": "GAIA", "client_id": "07-tendermint-1"}
+2022-08-20T15:58:21.362043Z     error   Error assembling channel message        {"error": "error querying connection proof: post failed: Post \"http://localhost:23657\": context canceled"}
+2022-08-20T15:58:21.362115Z     error   Error sending messages  {"src_chain_id": "GAIA", "dst_chain_id": "STRIDE-TESTNET-4", "src_client_id": "07-tendermint-1", "dst_client_id": "07-tendermint-4", "error": "all messages failed to assemble"}
+root@vmi837835:~/.relayer/config#
+
+root@vmi837835:~/.relayer/config# rly transact channel Path_StrideGaia
+2022-08-20T16:04:10.999380Z     info    Starting event processor for channel handshake  {"src_chain_id": "STRIDE-TESTNET-4", "src_port_id": "transfer", "dst_chain_id": "GAIA", "dst_port_id": "transfer"}
+2022-08-20T16:04:11.005670Z     info    Chain is in sync        {"chain_name": "STRIDE-TESTNET-4", "chain_id": "STRIDE-TESTNET-4"}
+2022-08-20T16:04:11.019561Z     info    Chain is in sync        {"chain_name": "GAIA", "chain_id": "GAIA"}
+2022-08-20T16:04:20.232276Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "STRIDE-TESTNET-4", "gas_used": 325180, "fees": "944ustrd", "fee_payer": "stride_wallet_address", "height": 24621, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.channel.v1.MsgChannelOpenInit"], "tx_hash": "id"}
+2022-08-20T16:04:28.949056Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "GAIA", "gas_used": 357093, "fees": "1039uatom", "fee_payer": "gaia_wallet_address", "height": 27601, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.channel.v1.MsgChannelOpenTry"], "tx_hash": "id"}
+2022-08-20T16:04:37.738346Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "STRIDE-TESTNET-4", "gas_used": 291430, "fees": "843ustrd", "fee_payer": "stride_wallet_address", "height": 24624, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.channel.v1.MsgChannelOpenAck"], "tx_hash": "id"}
+2022-08-20T16:04:49.031405Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "GAIA", "gas_used": 293378, "fees": "848uatom", "fee_payer": "gaia_wallet_address", "height": 27605, "msg_types": ["/ibc.core.client.v1.MsgUpdateClient", "/ibc.core.channel.v1.MsgChannelOpenConfirm"], "tx_hash": "id"}
+2022-08-20T16:04:49.165223Z     info    Found termination condition for channel handshake       {"chain_id": "GAIA", "client_id": "07-tendermint-1"}
+2022-08-20T16:04:49.165363Z     error   Error sending messages  {"src_chain_id": "STRIDE-TESTNET-4", "dst_chain_id": "GAIA", "src_client_id": "07-tendermint-4", "dst_client_id": "07-tendermint-1", "error": "observed client trusted height: 24623 does not equal latest client state height: 24625"}
+root@vmi837835:~/.relayer/config#
+
+
+
+------------=== Transfer
+----------- Transfer from Stride to Gaia
+
+rly transact transfer STRIDE-TESTNET-4 GAIA  10000ustrd $(rly chains address GAIA) channel-14 --path Path_StrideGaia
+
+root@vmi837835:~/.relayer/config# rly transact transfer STRIDE-TESTNET-4 GAIA  10000ustrd $(rly chains address GAIA) channel-14 --path Path_StrideGaia
+2022-08-20T16:13:37.234198Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "STRIDE-TESTNET-4", "packet_src_channel": "channel-14", "packet_dst_channel": "channel-34", "gas_used": 88242, "fees": "233ustrd", "fee_payer": "stride_wallet_address", "height": 24718, "msg_types": ["/ibc.applications.transfer.v1.MsgTransfer"], "tx_hash": "id"}
+root@vmi837835:~/.relayer/config#
+
+
+------------ Transfer from Gaia to Stride
+
+rly transact transfer GAIA STRIDE-TESTNET-4 20000uatom $(rly chains address STRIDE-TESTNET-4) channel-34 --path Path_StrideGaia
+
+root@vmi837835:~/.relayer/config# rly transact transfer GAIA STRIDE-TESTNET-4 20000uatom $(rly chains address STRIDE-TESTNET-4) channel-34 --path Path_StrideGaia
+2022-08-20T16:14:19.127055Z     info    Successful transaction  {"provider_type": "cosmos", "chain_id": "GAIA", "packet_src_channel": "channel-34", "packet_dst_channel": "channel-14", "gas_used": 97411, "fees": "260uatom", "fee_payer": "gaia_wallet_address", "height": 27718, "msg_types": ["/ibc.applications.transfer.v1.MsgTransfer"], "tx_hash": "id"}
+root@vmi837835:~/.relayer/config#
